@@ -1,0 +1,8 @@
+pandas
+numpy
+yaml
+sshtunnel
+pymysql
+altair
+streamlit
+protobuf==3.20.*

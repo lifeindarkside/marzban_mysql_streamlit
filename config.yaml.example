@@ -1,0 +1,11 @@
+credentials:
+  sql_hostname: '127.0.0.1'
+  sql_username: 'root'
+  sql_password: 'password'
+  sql_main_database: 'marzban'
+  sql_port: 3306
+  ssh_host: 'sshhost'
+  ssh_user: 'root'
+  ssh_port: 22
+  sql_ip: 'iporhost'
+  ssh_pass: 'password'
