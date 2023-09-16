@@ -9,11 +9,7 @@ st.set_page_config(
     page_title="MarzbanStat",
     page_icon="🧊",
     layout="wide",
-    initial_sidebar_state="expanded",
-    #menu_items={
-    #    'Get Help': 'https://t.me/+JhSyG3qrw7w3MGRi',
-    #    'Report a bug': "https://t.me/+JhSyG3qrw7w3MGRi",   
-    #}
+    initial_sidebar_state="collapsed"
 )
 
 
@@ -24,7 +20,7 @@ def getdata(ssh_host,ssh_port,ssh_user,ssh_pass,sql_hostname,sql_port,sql_userna
         ssh_username=ssh_user,
         ssh_password=ssh_pass,
         remote_bind_address=(sql_hostname, sql_port)) as tunnel:
-        conn = pymysql.connect(host='127.0.0.1', user=sql_username,
+        conn = pymysql.connect(host=sql_hostname, user=sql_username,
             passwd=sql_password, db=sql_main_database,
             port=tunnel.local_bind_port)
         df = pd.read_sql_query(query, conn)
@@ -73,14 +69,48 @@ def traffic_by_users(df):
 
 
 
-df = data_from_marzban('SELECT * FROM today_users_usage')
+df = data_from_marzban("""
+                        select (
+                                `a`.`created_at` + interval 3 hour
+                            ) AS `created_at`,
+                            `a`.`used_traffic` AS `used_traffic`,
+                            ifnull(`n`.`name`, 'Main') AS `node`,
+                            `u`.`username` AS `username`
+                        from ( (
+                                    `node_user_usages` `a`
+                                    left join `users` `u` on( (`u`.`id` = `a`.`user_id`))
+                                )
+                                left join `nodes` `n` on( (`n`.`id` = `a`.`node_id`))
+                            )
+                        where (
+                                `a`.`created_at` >= concat( (curdate() - interval 1 day),
+                                    ' 21:00:00'
+                                )
+                            )
+                        order by `a`.`created_at` desc
+                       """)
 df_last_hour_users = last_hour_users(df)
 df_users_by_hours = users_by_hours(df)
 stat_by_users_today = traffic_by_users(df)
 stat_by_users_last_hour = traffic_by_users(df_last_hour_users)
 traffic_by_users_last_hour = traffic_by_users(df_last_hour_users)
 traffic_by_hours_today = traffic_by_hours(df)
-df_all_dates = data_from_marzban('SELECT * FROM ttl_conn_by_user')
+df_all_dates = data_from_marzban("""select `users_usage`.`username` AS `username`,
+        count(`users_usage`.`created_at`) AS `cnt_connections`,
+        sum(`users_usage`.`used_traffic`) AS `used_traffic`,
+        min(`users_usage`.`created_at`) AS `first_conn`,
+        max(`users_usage`.`created_at`) AS `last_conn`, (
+            to_days(
+                max(`users_usage`.`created_at`)
+            ) - to_days(
+                min(`users_usage`.`created_at`)
+            )
+        ) AS `lifetime_days`
+    from `users_usage`
+    group by
+        `users_usage`.`username`
+    order by
+        count(`users_usage`.`created_at`) desc""")
 
 
 
