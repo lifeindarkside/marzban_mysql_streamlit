@@ -4,6 +4,7 @@ from sshtunnel import SSHTunnelForwarder
 import pymysql
 import altair as alt
 import streamlit as st
+import matplotlib.pyplot as plt
 
 st.set_page_config(
     page_title="MarzbanStat",
@@ -35,6 +36,7 @@ def data_from_marzban(query):
                             config['credentials']['ssh_pass'],config['credentials']['sql_hostname'],config['credentials']['sql_port'],
                             config['credentials']['sql_username'],config['credentials']['sql_password'],config['credentials']['sql_main_database'], query)
     df["used_traffic_gb"] = df["used_traffic"] / 1073741824
+    df["used_traffic_gb"] = df["used_traffic_gb"].round(2)
     if "created_at" in df.columns:
         df["created_at"] = pd.to_datetime(df["created_at"])
         df["hour"] = df["created_at"].dt.hour
@@ -47,15 +49,16 @@ def last_hour_users(df):
     return last_hour_users
 
 def users_by_hours(df):
-    hourly_counts = df.groupby(df["created_at"].dt.hour)["username"].nunique()
+    hourly_counts = df.groupby(["hour", "node"])["username"].nunique()
     hourly_counts = hourly_counts.reset_index()
     hourly_counts = hourly_counts.rename(columns={"username": "Connections"})
     return hourly_counts
 
 def traffic_by_hours(df):
-    hourly_counts = df.groupby("hour")["used_traffic_gb"].sum().reset_index()
+    hourly_counts = df.groupby(["hour", "node"])["used_traffic_gb"].sum().reset_index()
     hourly_counts["used_traffic_gb"] = hourly_counts["used_traffic_gb"].round(1)
     hourly_counts = hourly_counts.rename(columns={"used_traffic_gb": "traffic"})
+    hourly_counts = hourly_counts.sort_values(['hour', 'node', 'traffic'], ascending=[True, True, False])
     return hourly_counts
 
 def traffic_by_users(df):
@@ -111,6 +114,21 @@ df_all_dates = data_from_marzban("""select `users_usage`.`username` AS `username
         `users_usage`.`username`
     order by
         count(`users_usage`.`created_at`) desc""")
+df_ttl_with_nodes = data_from_marzban("""
+                        select (
+                                `a`.`created_at` + interval 3 hour
+                            ) AS `created_at`,
+                            `a`.`used_traffic` AS `used_traffic`,
+                            ifnull(`n`.`name`, 'Main') AS `node`
+                        from ( (
+                                    `node_user_usages` `a`
+                                    left join `users` `u` on( (`u`.`id` = `a`.`user_id`))
+                                )
+                                left join `nodes` `n` on( (`n`.`id` = `a`.`node_id`))
+                            )
+                        order by `a`.`created_at` desc
+                       """)
+
 
 
 
@@ -120,31 +138,31 @@ st.header("Сегодня по часам")
 col1, col2 = st.columns(2)
 with col1:
     bars = alt.Chart(df_users_by_hours).mark_bar().encode(
-        x=alt.X('created_at:N', axis=alt.Axis(title='Час')),
+        x=alt.X('hour:N', axis=alt.Axis(title='Час')),
         y=alt.Y('sum(Connections):Q', stack='zero', axis=alt.Axis(title='Подключений')),
-        color=alt.Color('Connections', title='Кол-во')
+        color=alt.Color('node:N', legend=alt.Legend(title='Узлы'), title='Узел') 
     )
-    
+
     text = alt.Chart(df_users_by_hours).mark_text(dx=0, dy=-10, align='center', color='white').encode(
-        x=alt.X('created_at:N', axis=alt.Axis(title='Час')),
+        x=alt.X('hour:N', axis=alt.Axis(title='Час')),
         y=alt.Y('sum(Connections):Q', stack='zero', axis=alt.Axis(title='Подключений')),
         text=alt.Text('sum(Connections):Q')
     )
-    
     
     mean_line = alt.Chart(df_users_by_hours).transform_aggregate(
         mean_connections='mean(Connections)'
     ).mark_rule(color='lightblue', strokeDash=[10, 5], opacity=0.5).encode(
         y='mean(mean_connections):Q'
     )
-    
+
     st.altair_chart(bars+text+mean_line, use_container_width=True)
+    
 with col2:
     #-----------------------траффик
     bars = alt.Chart(traffic_by_hours_today).mark_bar().encode(
         x=alt.X('hour:N', axis=alt.Axis(title='Час')),
         y=alt.Y('sum(traffic):Q', stack='zero', axis=alt.Axis(title='GB')),
-        color=alt.Color('traffic', title='GB')
+        color=alt.Color('node:N', legend=alt.Legend(title='Узлы'), title='Узел') 
     )
 
     text = alt.Chart(traffic_by_hours_today).mark_text(dx=0, dy=-10, align='center', color='white').encode(
@@ -152,7 +170,7 @@ with col2:
         y=alt.Y('sum(traffic):Q', stack='zero', axis=alt.Axis(title='GB')),
         text=alt.Text('sum(traffic):Q')
     )
-
+    
     
     mean_line = alt.Chart(traffic_by_hours_today).transform_aggregate(
         mean_traffic='mean(traffic)'
@@ -191,7 +209,39 @@ with col3:
     st.write("По трафику за последний час")
     st.dataframe(top5_last_hour_traffic, use_container_width=True)
 
+st.header("Статистика по узлам") 
 
+total_data = df_ttl_with_nodes.groupby("node")['used_traffic_gb'].sum().round(2).reset_index()
+total_data['percentage'] = ((total_data['used_traffic_gb'] / total_data['used_traffic_gb'].sum()) * 100).round(1)
+today_data = df.groupby("node")['used_traffic_gb'].sum().round(2).reset_index()
+today_data['percentage'] = ((today_data['used_traffic_gb'] / today_data['used_traffic_gb'].sum()) * 100).round(1)
+last_hour_data = df_last_hour_users.groupby("node")['used_traffic_gb'].sum().round(2).reset_index()
+last_hour_data['percentage'] = ((last_hour_data['used_traffic_gb'] / last_hour_data['used_traffic_gb'].sum()) * 100).round(1)
+
+col1, col2, col3 = st.columns(3)
+with col1:
+    chart = alt.Chart(total_data).mark_arc(innerRadius=50, outerRadius=100).encode(
+        theta='used_traffic_gb',
+        color='node',
+        tooltip=['node', 'used_traffic_gb', 'percentage']
+    ).properties(title='За все время')
+    st.altair_chart(chart, use_container_width=True)
+
+with col2:
+    chart = alt.Chart(today_data).mark_arc(innerRadius=50, outerRadius=100).encode(
+        theta='used_traffic_gb',
+        color='node',
+        tooltip=['node', 'used_traffic_gb', 'percentage']
+    ).properties(title='За сегодня')
+    st.altair_chart(chart, use_container_width=True)
+
+with col3:
+    chart = alt.Chart(last_hour_data).mark_arc(innerRadius=50, outerRadius=100).encode(
+        theta='used_traffic_gb',
+        color='node',
+        tooltip=['node', 'used_traffic_gb', 'percentage']
+    ).properties(title='За последний час')
+    st.altair_chart(chart, use_container_width=True)
 
 
 st.header("Общая статистика") 
@@ -213,26 +263,35 @@ anti_top_connections = df_all_dates.nsmallest(5, 'Количество подк�
 
 
 # Функция для создания гистограммы
-def create_bar_chart(data, x, y, title):
+def create_bar_chart(data, x, y):
+    max_y = data[y].max()
+    max_y += max_y * 0.1  
     chart = alt.Chart(data).mark_bar().encode(
         x=alt.X(x, title=x),
-        y=alt.Y(y, title=y)
-    ).properties(
-        title=title
+        y=alt.Y(y, title=y, scale=alt.Scale(domain=(0, max_y)))
     )
-    return chart
+    text = alt.Chart(data).mark_text(dx=0, dy=-10, align='center', color='white').encode(
+        x=alt.X(x, title=x),
+        y=alt.Y(y, title=y),
+        text=alt.Text(y)
+    )
+    return chart+text
+
 
 # Гистограммы для топ 5 пользователей
 col3, col4, col5 = st.columns([1, 1, 1])
 
 with col3:
-    st.altair_chart(create_bar_chart(top_traffic, 'Имя пользователя', 'Трафик (ГБ)', 'Топ 5 по траффику'), use_container_width=True)
+    st.write("Топ 5 по траффику")
+    st.altair_chart(create_bar_chart(top_traffic, 'Имя пользователя', 'Трафик (ГБ)'), use_container_width=True)
 
 with col4:
-    st.altair_chart(create_bar_chart(top_connections, 'Имя пользователя', 'Количество подключений', 'Топ 5 по подключениям'), use_container_width=True)
+    st.write("Топ 5 по подключениям")
+    st.altair_chart(create_bar_chart(top_connections, 'Имя пользователя', 'Количество подключений'), use_container_width=True)
 
 with col5:
-    st.altair_chart(create_bar_chart(top_lifetime, 'Имя пользователя', 'Время жизни (дни)', 'Топ 5 по времени жизни'), use_container_width=True)
+    st.write("Топ 5 по времени жизни")
+    st.altair_chart(create_bar_chart(top_lifetime, 'Имя пользователя', 'Время жизни (дни)'), use_container_width=True)
 # Колонки для топов и антитопов
 col1, col2 = st.columns(2)
 
