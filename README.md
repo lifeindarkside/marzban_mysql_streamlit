@@ -29,11 +29,29 @@ credentials:
 ```sh
 pip install -r requirements.txt
 ```
+
+Либо установите и активируйте окружение Conda
+```sh
+conda env create --name marzban-streamlit --file=conda_env_streamlit.yml
+```
 ### Шаг 3: Запуск проекта
+Если вы создали окружение Conda, то сначала активируйте его
+```sh
+conda activate marzban-streamlit
+```
 
 После того как вы установили все необходимые зависимости, вы можете запустить проект с помощью следующей команды в корневой директории проекта:
 
 ```sh
 streamlit run main.py
 ```
+Автоматически откроется страница браузера с адресом http://localhost:8501/
+
+Если необходимо сменить порт:
+```sh
+streamlit run main.py --server.port 8503
+```
+
+
+
 
