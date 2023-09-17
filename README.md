@@ -1,6 +1,10 @@
 # Marzban Dashboard Project
 
 Этот дашборд создан для визуализации статистик в проекте [Marzban](https://github.com/Gozargah/Marzban), используя MySQL для хранения данных.
+![image](https://github.com/lifeindarkside/marzban_mysql_streamlit/assets/66727826/9fcc5f15-90ce-4292-894d-eaa01afd14da)
+![image](https://github.com/lifeindarkside/marzban_mysql_streamlit/assets/66727826/8fcd7d19-1a5f-408d-8f83-7d5afc5da219)
+![image](https://github.com/lifeindarkside/marzban_mysql_streamlit/assets/66727826/f55a79ec-2889-4897-8500-540a44c09b7b)
+
 
 ## Установка
 
