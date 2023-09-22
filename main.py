@@ -255,11 +255,12 @@ df_all_dates = df_all_dates.rename(columns={
 
 
 # Генерация топов и антитопов
-top_traffic = df_all_dates.nlargest(5, 'Трафик (ГБ)')[['Имя пользователя', 'Трафик (ГБ)']]
-top_connections = df_all_dates.nlargest(5, 'Количество подключений')[['Имя пользователя', 'Количество подключений']]
-top_lifetime = df_all_dates.nlargest(5, 'Время жизни (дни)')[['Имя пользователя', 'Время жизни (дни)']]
-anti_top_traffic = df_all_dates.nsmallest(5, 'Трафик (ГБ)')[['Имя пользователя', 'Трафик (ГБ)']]
-anti_top_connections = df_all_dates.nsmallest(5, 'Количество подключений')[['Имя пользователя', 'Количество подключений']]
+top_traffic = df_all_dates.nlargest(10, 'Трафик (ГБ)')[['Имя пользователя', 'Трафик (ГБ)']]
+top_connections = df_all_dates.nlargest(10, 'Количество подключений')[['Имя пользователя', 'Количество подключений']]
+top_lifetime = df_all_dates.nlargest(10, 'Время жизни (дни)')[['Имя пользователя', 'Время жизни (дни)']]
+anti_top_traffic = df_all_dates.nsmallest(10, 'Трафик (ГБ)')[['Имя пользователя', 'Трафик (ГБ)']]
+anti_top_connections = df_all_dates.nsmallest(10, 'Количество подключений')[['Имя пользователя', 'Количество подключений']]
+anti_top_lifetime = df_all_dates.nsmallest(10, 'Время жизни (дни)')[['Имя пользователя', 'Время жизни (дни)']]
 
 
 # Функция для создания гистограммы
@@ -278,26 +279,26 @@ def create_bar_chart(data, x, y):
     return chart+text
 
 
-# Гистограммы для топ 5 пользователей
+# Гистограммы для топ 10 пользователей
 col3, col4, col5 = st.columns([1, 1, 1])
 
 with col3:
-    st.write("Топ 5 по траффику")
+    st.write("Топ 10 по траффику")
     st.altair_chart(create_bar_chart(top_traffic, 'Имя пользователя', 'Трафик (ГБ)'), use_container_width=True)
 
 with col4:
-    st.write("Топ 5 по подключениям")
+    st.write("Топ 10 по подключениям")
     st.altair_chart(create_bar_chart(top_connections, 'Имя пользователя', 'Количество подключений'), use_container_width=True)
 
 with col5:
-    st.write("Топ 5 по времени жизни")
+    st.write("Топ 10 по времени жизни")
     st.altair_chart(create_bar_chart(top_lifetime, 'Имя пользователя', 'Время жизни (дни)'), use_container_width=True)
 # Колонки для топов и антитопов
 col1, col2 = st.columns(2)
 
 # Топ 5 пользователей
 with col1:
-    st.subheader("Топ 5 Пользователей")
+    st.subheader("Топ 10 Пользователей")
     st.write("По траффику")
     st.dataframe(top_traffic, use_container_width=True)
     st.write("По подключениям")
@@ -307,11 +308,13 @@ with col1:
 
 # Антитоп 5 пользователей
 with col2:
-    st.subheader("Антитоп 5 Пользователей")
+    st.subheader("Антитоп 10 Пользователей")
     st.write("По траффику")
     st.dataframe(anti_top_traffic, use_container_width=True)
     st.write("По подключениям")
     st.dataframe(anti_top_connections, use_container_width=True)
+    st.write("По времени жизни")
+    st.dataframe(anti_top_lifetime, use_container_width=True)
 
 
 
