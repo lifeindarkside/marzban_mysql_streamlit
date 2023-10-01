@@ -109,10 +109,22 @@ df_all_dates = data_from_marzban("""select `users_usage`.`username` AS `username
                 min(`users_usage`.`created_at`)
             )
         ) AS `lifetime_days`
-    from `users_usage`
-    group by
-        `users_usage`.`username`
-    order by
+    from (select (
+            `a`.`created_at` + interval 3 hour
+            ) AS `created_at`,
+            `a`.`used_traffic` AS `used_traffic`,
+            ifnull(`n`.`name`, 'Main') AS `node`,
+            `u`.`username` AS `username`
+          from ( (
+                `node_user_usages` `a`
+                left join `users` `u` on( (`u`.`id` = `a`.`user_id`))
+                )
+                left join `nodes` `n` on( (`n`.`id` = `a`.`node_id`))
+            )      
+          order by `a`.`created_at` desc) as `users_usage`
+        group by
+            `users_usage`.`username`
+        order by
         count(`users_usage`.`created_at`) desc""")
 df_ttl_with_nodes = data_from_marzban("""
                         select (
