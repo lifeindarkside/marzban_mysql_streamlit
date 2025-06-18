@@ -5,4 +5,4 @@ sshtunnel
 pymysql
 altair
 streamlit
-protobuf==3.20.*
+protobuf>=4.25.8
